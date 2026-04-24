@@ -1,0 +1,13 @@
+{
+  "name": "BuilderBlast.ai",
+  "description": "AI-powered team duplication and execution system for financial education teams.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "Firebase",
+    "Gemini AI",
+    "Real-time Dashboards"
+  ]
+}

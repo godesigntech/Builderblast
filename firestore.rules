@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL DENY ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- HELPERS ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isBuilderOf(agentId) {
+      return getUserData(agentId).builderId == request.auth.uid;
+    }
+
+    function isLicensingTeam() {
+      return getUserData(request.auth.uid).role == 'licensing_team';
+    }
+
+    // --- ENTITY VALIDATORS ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.role in ['builder', 'agent', 'licensing_team'] &&
+             data.email is string && data.email.size() <= 256;
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['id', 'title', 'agentId', 'phase', 'status']) &&
+             data.phase >= 1 && data.phase <= 12 &&
+             data.status in ['Not Started', 'In Progress', 'Completed'] &&
+             isValidId(data.id) &&
+             data.agentId == request.auth.uid;
+    }
+
+    // --- COLLECTIONS ---
+
+    // USERS
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (isOwner(userId) || isLicensingTeam() || getUserData(request.auth.uid).role == 'builder');
+      
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      
+      allow update: if isOwner(userId) && 
+                      isValidUser(incoming()) && 
+                      incoming().role == existing().role && // Role immutability
+                      (
+                        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'currentPhase', 'updatedAt', 'birthday', 'gfiId', 'licenseStatus'])
+                      );
+    }
+
+    // TASKS
+    match /tasks/{taskId} {
+      allow get: if isSignedIn() && (isOwner(existing().agentId) || isBuilderOf(existing().agentId));
+      allow list: if isSignedIn() && (isOwner(resource.data.agentId) || isBuilderOf(resource.data.agentId));
+      
+      allow create: if isSignedIn() && isValidTask(incoming());
+      
+      allow update: if isSignedIn() && 
+                      isOwner(existing().agentId) &&
+                      incoming().agentId == existing().agentId &&
+                      (
+                        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedAt', 'updatedAt', 'description'])
+                      );
+      allow delete: if isSignedIn() && isOwner(existing().agentId);
+    }
+
+    // LICENSING
+    match /licensing/{trackingId} {
+      allow read: if isSignedIn() && (isOwner(trackingId) || isLicensingTeam() || isBuilderOf(trackingId));
+      allow write: if isSignedIn() && (isOwner(trackingId) || isLicensingTeam());
+    }
+
+    // POLICIES
+    match /policies/{policyId} {
+      allow read: if isSignedIn() && (isOwner(resource.data.agentId) || isBuilderOf(resource.data.agentId));
+      allow create: if isSignedIn() && isOwner(incoming().agentId);
+      allow update: if isSignedIn() && isOwner(existing().agentId) && 
+                      existing().status != 'Delivered' && // Terminal state lock
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+    }
+
+    // CLIENTS
+    match /clients/{clientId} {
+      allow read, write: if isSignedIn() && (isOwner(resource.data.agentId) || (request.method == 'create' && isOwner(incoming().agentId)));
+    }
+  }
+}

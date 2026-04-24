@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a builder, agent, or staff member in the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["builder", "agent", "licensing_team"] },
+        "builderId": { "type": "string", "description": "The UID of the builder who owns this user's team." },
+        "currentPhase": { "type": "number", "description": "The current 1-12 phase of the agent." },
+        "licenseStatus": { "type": "string", "enum": ["Not Started", "In Progress", "Licensed"] },
+        "gfiId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "birthday": { "type": "string", "format": "date" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A client associated with an agent.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "agentId": { "type": "string" },
+        "birthday": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "agentId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A specific action item for an agent.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "phase": { "type": "number" },
+        "agentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Completed"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "agentId", "phase", "status"]
+    },
+    "Policy": {
+      "title": "Policy",
+      "description": "A financial product policy submitted by an agent.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agentId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Income Protection", "IUL", "Annuity", "Million Dollar Baby", "Final Expense"] },
+        "status": { "type": "string", "enum": ["Submitted", "Approved", "Delivered"] },
+        "points": { "type": "number" },
+        "commission": { "type": "number" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "agentId", "clientId", "type", "status"]
+    },
+    "LicensingTracking": {
+      "title": "LicensingTracking",
+      "description": "Detailed tracking for an agent's licensing journey.",
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string" },
+        "quizCompleted": { "type": "boolean" },
+        "xcelAccess": { "type": "boolean" },
+        "examScheduledDate": { "type": "string", "format": "date-time" },
+        "ceCompleted": { "type": "boolean" },
+        "eoInsurance": { "type": "boolean" }
+      },
+      "required": ["agentId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Global users collection."
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Global clients collection."
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Task management collection."
+    },
+    "/policies/{policyId}": {
+      "schema": "Policy",
+      "description": "Carrier policies collection."
+    },
+    "/licensing/{trackingId}": {
+      "schema": "LicensingTracking",
+      "description": "Licensing progress tracking."
+    }
+  }
+}
